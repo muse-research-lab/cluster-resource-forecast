@@ -43,7 +43,6 @@ def SetAbstractMetrics(data, configs):
         if metric in [
             "avg_memory_usage",
             "max_memory_usage",
-            "random_sample_memory_usage",
             "assigned_memory",
         ]:
             samples_with_abstract_metric = (

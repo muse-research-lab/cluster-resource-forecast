@@ -13,9 +13,9 @@
 
 import apache_beam as beam
 import numpy as np
-import json
 from collections import deque
 from simulator.fortune_teller_factory import FortuneTellerFactory
+from beam_mysql.connector.io import WriteToMySQL
 
 
 def _AssignSimulatedMachineIDAsKey(row):
@@ -90,12 +90,13 @@ class _FortuneTeller:
             for usage in vars(current_snapshot)["measures"]
         ]
 
-        # TODO: we cap usage by limit by default here.
-        # change that to do only when configured to do so
-        current_usage = [
-            min(usage, limit)
-            for usage, limit in zip(current_usage_list, current_limit_list)
-        ]
+        if hasattr(self.teller, "cap_to_limit") and self.teller.cap_to_limit == True:
+            current_usage = [
+                min(usage, limit)
+                for usage, limit in zip(current_usage_list, current_limit_list)
+            ]
+        else:
+            current_usage = current_usage_list
 
         current_total_usage = sum(current_usage)
 
@@ -183,10 +184,6 @@ def CallFortuneTellerRunner(data, config):
         _SortBySimulatedTime
     )
 
-    results_schema_without_samples_file = open(
-        "simulator/results_schema_without_samples.json"
-    )
-    results_schema_without_samples = json.load(results_schema_without_samples_file)
     for fortune_teller_config in config.fortune_teller:
 
         simulation_results = sorted_data | "Calling Fortune Teller Runner For {}".format(
@@ -201,8 +198,8 @@ def CallFortuneTellerRunner(data, config):
             lambda elements: elements
         )
 
-        if config.simulation_result.dataset:
-            simulation_result_dataset = config.simulation_result.dataset
+        if config.simulation_result.database:
+            simulation_result_database = config.simulation_result.database
             simulation_result_table = (
                 config.simulation_result.table
                 if config.simulation_result.HasField("table")
@@ -213,13 +210,16 @@ def CallFortuneTellerRunner(data, config):
                 # TODO: add support for saving samples
                 assert False, "Simulator does not support saving samples at present."
             else:
-                unpacked_simulation_results | "Save {} results to BQ table".format(
+                unpacked_simulation_results | "Save {} results to MySQL table".format(
                     fortune_teller_config.name
-                ) >> beam.io.WriteToBigQuery(
-                    "{}.{}".format(simulation_result_dataset, simulation_result_table,),
-                    schema=results_schema_without_samples,
-                    write_disposition=beam.io.BigQueryDisposition.WRITE_TRUNCATE,
-                    create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
+                ) >> WriteToMySQL(
+                    host=config.simulation_result.host,
+                    port=config.simulation_result.port,
+                    user=config.simulation_result.username,
+                    password=config.simulation_result.password,
+                    database=simulation_result_database,
+                    table=simulation_result_table,
+                    batch_size=config.simulation_result.batch_size or 500
                 )
         else:
             return unpacked_simulation_results

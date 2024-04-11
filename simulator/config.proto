@@ -6,8 +6,13 @@ message Int64Range {
 }
 
 message DataLocation {
-  optional string dataset = 1;
+  optional string database = 1;
   optional string table = 2;
+  optional string host = 3;
+  optional string port = 4;
+  optional string username = 5;
+  optional string password = 6;
+  optional string batch_size = 7;
 }
 
 message VMFilter {
@@ -33,6 +38,7 @@ message AbstractMetricSelector {
     bool avg_cpu_usage = 3;
     bool avg_memory_usage = 4;
     bool max_cpu_usage = 5;
+    bool assigned_memory = 6;
   }
 }
 
@@ -67,6 +73,20 @@ message PredictorConfig {
     optional int64 min_num_samples = 1;
     optional bool cap_to_limit = 2;
   }
+  message PreviousPredictorConfig {
+    optional int64 min_num_samples = 1;
+    optional bool cap_to_limit = 2;
+    optional int64 num_history_samples = 3;
+  }
+  message LocalmaxPredictorConfig {
+    optional int64 min_num_samples = 1;
+    optional bool cap_to_limit = 2;
+    optional int64 num_history_samples = 3;
+  }
+  message BorgPredictorConfig {
+    optional int64 min_num_samples = 1;
+    optional bool cap_to_limit = 2;
+  }
   message PerVMPercentileConfig {
     optional int64 min_num_samples = 1;
     optional bool cap_to_limit = 2;
@@ -85,9 +105,25 @@ message PredictorConfig {
     optional int64 num_history_samples = 3;
     optional int64 n = 4;
   }
+  message DoubleMaxPredictorConfig {
+    optional int64 min_num_samples = 1;
+    optional bool cap_to_limit = 2;
+    optional int64 num_history_samples = 3;
+    optional double percentile = 4 [default = 100];
+    optional int64 n = 5;
+  }
+  message TripleMaxPredictorConfig {
+    optional int64 min_num_samples = 1;
+    optional bool cap_to_limit = 2;
+    optional int64 num_history_samples = 3;
+    optional double percentile = 4 [default = 100];
+    optional int64 n = 5;
+  }
   message AvgDecoratorConfig {
   }
   message MaxDecoratorConfig {
+  }
+  message DoubleMaxDecoratorConfig {
   }
   // New predictor needs to define a new message here.
   oneof predictor {
@@ -99,6 +135,12 @@ message PredictorConfig {
     NSigmaConfig n_sigma_predictor = 6;
     LimitPredictorConfig limit_predictor = 7;
     PerMachinePercentileConfig per_machine_percentile_predictor = 8;
+    PreviousPredictorConfig previous_predictor = 9;
+    BorgPredictorConfig borg_predictor = 11;
+    DoubleMaxPredictorConfig double_max_predictor = 12;
+    DoubleMaxDecoratorConfig double_max_decorator = 13;
+    TripleMaxPredictorConfig triple_max_predictor = 14;
+    LocalmaxPredictorConfig localmax_predictor = 15;
   }
 }
 

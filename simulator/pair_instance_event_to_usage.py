@@ -12,6 +12,7 @@
 # limitations under the License.
 
 import apache_beam as beam
+import json
 
 
 def _AssignKeys(row):
@@ -37,26 +38,33 @@ class _MergeByOrder(beam.DoFn):
             usage_stream = usage_stream[0]
             event_stream = event_stream[0]
             selected_events = []
-            # TODO- optimize the solution to O(N)
-            # current, we go through selected event stream
-            # for every usage, which means the solution is O(N^2)
-            # if the events and usages are ordered in time,
-            # we can merge them in O(N) by picking the first event and
-            # retaining it until event.time > usage.start_time and so on.
             for event in event_stream:
+                event["resource_request"] = json.loads(event["resource_request"])
                 if (
                     event["resource_request"]["cpus"] > 0
                     and event["resource_request"]["memory"] > 0
                 ):
                     selected_events.append(event)
 
-            for usage in usage_stream:
-                picked_event = None
-                for event in selected_events:
-                    if event["time"] <= usage["start_time"]:
-                        picked_event = event
+            sorted_selected_events = sorted(selected_events, key=lambda x: x["time"], reverse=True)
+            sorted_usage_stream = sorted(usage_stream, key=lambda x: x["start_time"], reverse=True)
+
+            i = 0
+            picked_event = sorted_selected_events[i]
+
+            for usage in sorted_usage_stream:
+                while picked_event["time"] > usage["start_time"]:
+                    i = i + 1
+                    if i < len(sorted_selected_events):
+                        picked_event = sorted_selected_events[i]
+                    else:
+                        picked_event = None
+                        break
+                
                 if picked_event != None:
                     yield dict(usage=usage, event=picked_event)
+                else:
+                    break
         else:
             return dict(usage=[], event=[])
 

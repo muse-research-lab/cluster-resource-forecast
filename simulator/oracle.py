@@ -28,7 +28,7 @@ class Oracle:
 
         if self.cap_to_limit == True:
             current_vm_unique_ids = [
-                usage["sample"]["info"]["unique_id"]
+                usage["sample"]["info"]["unique_id"] 
                 for usage in vars(current_snapshot)["measures"]
             ]
             vm_limits = dict(zip(current_vm_unique_ids, current_vm_limits))
@@ -50,18 +50,18 @@ class Oracle:
                 vm_usages = dict(zip(unique_ids_snapshot, usages_in_snapshot))
                 usages_in_snapshot = [
                     vm_usages[key]
-                    if vm_usages[key] < vm_limits[key]
-                    else vm_limits[key]
+                    #if vm_usages[key] < vm_limits[key]  #removing cap to limit
+                    #else vm_limits[key] 
                     for key in vm_usages.keys()
                 ]
 
             future_total_usages.append(sum(usages_in_snapshot))
 
         predicted_peak = np.nanpercentile(
-            np.array(future_total_usages), self.percentile
+            np.array(future_total_usages), self.percentile 
         )
 
         if np.isnan(predicted_peak) == True:
             predicted_peak = current_total_limit
 
-        return (predicted_peak, current_total_limit)
+        return (predicted_peak, current_total_limit) #(future, current)

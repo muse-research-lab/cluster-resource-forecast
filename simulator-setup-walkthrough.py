@@ -18,28 +18,68 @@ import argparse
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
-from apache_beam.io.gcp.internal.clients import bigquery
-import json
+from beam_mysql.connector import splitters
+from beam_mysql.connector.io import ReadFromMySQL, WriteToMySQL
 
 from simulator.pair_instance_event_to_usage import JoinUsageAndEvent
 from simulator.map_to_schema import MapVMSampleToSchema
 
 
-def run(argv=None, save_main_session=True):
-    """Main entry point; defines and runs the simulator pipeline."""
+def run(argv=None, save_main_session=False):
+    """Main entry point; defines and runs the simulator data preparation pipeline."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--input",
+        "--input", "-i",
         dest="input",
         required=True,
         help="Input file containing SQL queries for usage and events tables.",
     )
     parser.add_argument(
-        "--output",
+        "--output", "-o",
         dest="output",
         required=True,
         help=(
-            "Output BigQuery table for results specified as: PROJECT:DATASET.TABLE or DATASET.TABLE."
+            "Output SQL table for results."
+        ),
+    )
+    parser.add_argument(
+        "--host",
+        dest="host",
+        required=True,
+        help=(
+            "Host name or IP of the database server."
+        ),
+    )
+    parser.add_argument(
+        "--port", "-p",
+        dest="port",
+        required=True,
+        help=(
+            "Port of the database server."
+        ),
+    )
+    parser.add_argument(
+        "--database", "-db",
+        dest="database",
+        required=True,
+        help=(
+            "Name of the database."
+        ),
+    )
+    parser.add_argument(
+        "--user", "-u",
+        dest="username",
+        required=True,
+        help=(
+            "User of the database."
+        ),
+    )
+    parser.add_argument(
+        "--pass", "-pwd",
+        dest="password",
+        required=True,
+        help=(
+            "Password of the database user."
         ),
     )
 
@@ -54,11 +94,23 @@ def run(argv=None, save_main_session=True):
     usage_query = queries[0]
     event_query = queries[1]
 
-    input_usage = p | "Query Usage Table" >> beam.io.Read(
-        beam.io.BigQuerySource(query=usage_query, use_standard_sql=True)
+    input_usage = p | "Query Usage Table" >> ReadFromMySQL(
+        host=known_args.host,
+        port=known_args.port,
+        user=known_args.username,
+        password=known_args.password,
+        database=known_args.database,
+        query=usage_query,
+        splitter=splitters.LimitOffsetSplitter()
     )
-    input_event = p | "Query Event Table" >> beam.io.Read(
-        beam.io.BigQuerySource(query=event_query, use_standard_sql=True)
+    input_event = p | "Query Event Table" >> ReadFromMySQL(
+        host=known_args.host,
+        port=known_args.port,
+        user=known_args.username,
+        password=known_args.password,
+        database=known_args.database,
+        query=event_query,
+        splitter=splitters.LimitOffsetSplitter()
     )
 
     usage_event_stream = JoinUsageAndEvent(input_usage, input_event)
@@ -66,14 +118,14 @@ def run(argv=None, save_main_session=True):
         MapVMSampleToSchema
     )
 
-    f = open("table_schema.json")
-    table_schema = json.loads(f.read())
-
-    final_table | beam.io.WriteToBigQuery(
-        known_args.output,
-        schema=table_schema,
-        write_disposition=beam.io.BigQueryDisposition.WRITE_TRUNCATE,
-        create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
+    final_table | "Write Data to Database" >> WriteToMySQL(
+        host=known_args.host,
+        port=known_args.port,
+        user=known_args.username,
+        password=known_args.password,
+        database=known_args.database,
+        table=known_args.output,
+        batch_size=500
     )
 
     result = p.run()

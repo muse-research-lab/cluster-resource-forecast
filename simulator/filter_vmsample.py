@@ -49,6 +49,13 @@ def VMsInSchedulingClassRange(row, lower_bound, upper_bound):
         row
 
 
+def VMsInMachineIDList(row, mids):
+    if row:
+        return row["info"]["machine_id"] in mids
+    else:
+        row
+
+
 def FilterVMSample(data, configs):
 
     if configs.filter.HasField("start_time") and configs.filter.HasField("end_time"):
@@ -95,4 +102,16 @@ def FilterVMSample(data, configs):
     else:
         vms_in_scheduling_class_range = vms_in_priority_range
 
-    return vms_in_scheduling_class_range
+    if list(configs.filter.machine_id) != []:
+        vms_in_machine_id_list = (
+            vms_in_scheduling_class_range
+            | "Keep VMs within machine id list"
+            >> beam.Filter(
+                VMsInMachineIDList,
+                list(configs.filter.machine_id)
+            )
+        )
+    else:
+        vms_in_machine_id_list = vms_in_scheduling_class_range
+
+    return vms_in_machine_id_list

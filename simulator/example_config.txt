@@ -1,6 +1,10 @@
 input {
-  dataset: "test"
-  table: "cluster_a_filtered"
+  database: "database_name"
+  table: "join_usage_and_event"
+  host: "host_name"
+  port: "port_number"
+  username: ""
+  password: ""
 }
 filter {
   remove_non_top_level_vms: true
@@ -14,7 +18,7 @@ filter {
   }
 }
 metric {
-  cpu_usage_percentile: 90
+  avg_cpu_usage: 1
 }
 reset_and_shift {
   reset_time_to_zero: false
@@ -26,9 +30,20 @@ reset_and_shift {
 scheduler {
   by_machine_id: true
 }
-scheduled_samples {
-  output {
-    dataset: "intermediate_cell_a_first_week_p90"
-    table: "scheduled_samples_complete"
-  }
+fortune_teller {
+    name: "max"
+    save_samples: false
+    predictor {
+        max_predictor {
+            cap_to_limit: false
+          }  
+        }
+}
+simulation_result {
+  database: "database_name"
+  table: "simulation_results"
+  host: "host_name"
+  port: "port_number"
+  username: ""
+  password: ""
 }
